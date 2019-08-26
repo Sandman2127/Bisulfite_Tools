@@ -9,7 +9,7 @@ BGPH2BW="$BS_PROGS/bedGraphToBigWig/bedGraphToBigWig"
 HCDMR_MAIN="$BS_PROGS/hcDMR_caller/Main"
 HCDMR_DATA="$BS_PROGS/hcDMR_caller/Ref_data/"
 FASTP="$HOME/progs/fastp/fastp"
-CPUCORES=5                          # How many cores do you want to utilize per run?
+CPUCORES=6                          # How many cores do you want to utilize per run?
 CG_MET_DIFF=0.4                     # 40% methylation difference
 CHG_MET_DIFF=0.2                    # 20% methylation difference
 CHH_MET_DIFF=0.1                    # 10% methylation difference
@@ -257,7 +257,6 @@ then
         echo "Calling CHH methylation differences with HCDMR" ;
 
         perl $HCDMR_MAIN/hcDMR_caller_DSmod2.pl -ref $HCDMR_DATA/CHH.100.54WT.Ref.txt.gz -input ${INPUT%.fq.gz}.out.CHH.100.gz -dif $CHH_MET_DIFF -n 33 ;
-Col_pUV_BS_seq.out.DMR
         mv ${INPUT%.fq.gz}.out.DMR ${INPUT%.fq.gz}.CHH.DMR ;
 
         awk '$7>=0.10 && $2!="begin" && $5<$6{print "chr"$1"\t"$2"\t"$3"\t"$4"\t"$7"\t""+"}' ${INPUT%.fq.gz}.CHH.DMR | grep "hypo" > ${INPUT%.fq.gz}.CHH.hypo.DMR ;
