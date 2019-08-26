@@ -40,7 +40,7 @@ if [ -e "$WD/${INPUT%.fq.gz}_analysis" ] ; then echo "Initial directory previous
 ### Fastqc all each file
 #fastqc $PRIMARY_INPUT --outdir $WD/fastqcs
 
-if [ "$TRIM" == "TRUE" ] && [ $METHOD == "ALL" ] || [ "$TRIM" == "TRUE" ] && [ $METHOD == "MAP_ONLY" ]; then
+if ([ "$TRIM" == "TRUE" ] && [ $METHOD == "ALL" ]) || ([ "$TRIM" == "TRUE" ] && [ $METHOD == "MAP_ONLY" ]); then
     TRIMMED_FASTQ="$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq/${INPUT%.fq.gz}.trimmed.fq.gz"
     
     if [ -e "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq" ]; 
@@ -213,7 +213,7 @@ then
 
     ### Step 1 - generate methratio file from aligned bam file:
 
-    python $HCDMR_MAIN/methratio_alt.py --Steve --sam-path=$BS_PROGS/bsmap-2.90/samtools --ref=$REF --out=${INPUT%.fq.gz}.out -u -z -r $WD/"${INPUT%.fq.gz}_analysis"/Bisulfite_alignment/${INPUT%.fq.gz}.bam ;
+    python $HCDMR_MAIN/methratio_alt.py --Steve --sam-path=$BS_PROGS/bsmap-2.90/samtools --ref=$REF --out=${INPUT%.fq.gz}.out -u -z -r "$WD/${INPUT%.fq.gz}_analysis/Bisulfite_alignment/${INPUT%.fq.gz}.bam" ;
         # Options:
         #         -h, --help            show this help message and exit
         #         -o FILE, --out=FILE   output file name. (required)
