@@ -15,16 +15,16 @@ CHH_MET_DIFF=0.1                    # 10% methylation difference
 
 #Arguments:
 PRIMARY_INPUT=$1
-INPUT="$(basename $PRIMARY_INPUT)"  # this allows me to call from a directory structure keeping the data name separate
+INPUT="$(basename $PRIMARY_INPUT)"  # This allows me to call from a directory structure keeping the data name separate
 REF="$2"                            # Reference genome.fa
-METHOD="$3"                         # ALL MAP_ONLY BIN_ONLY TRACKS_ONLY HCDMR_ONLY
+METHOD="$3"                         # ALL MAP_ONLY CALC_GENOME_MET BIN_ONLY TRACKS_ONLY HCDMR_ONLY 
 CONTEXT="$4"                        # ALL_CONTEXTS CG CHG CHH the default is all if no $4, pass CG as $4 with HCDMR only to only call CG DMRs
 if [ "$CONTEXT" != "" ]; then
     CONTEXT=$4
-    echo "calling DMRs on only $CONTEXT"
+    echo "If method is ALL or HCDMR_ONLY calling DMRs on only $CONTEXT"
 else
     CONTEXT="ALL_CONTEXTS"
-    echo "calling DMRs on $CONTEXT"
+    echo "If method is ALL or HCDMR_ONLY calling DMRs on $CONTEXT"
 fi
 
 export PATH HOME WD BS_PROGS PLOTTER BSMAP BGPH2BW CONTEXT
@@ -111,7 +111,8 @@ else
 fi
 
 
-if [ "$METHOD" == "ALL" ] || [ "$METHOD" == "BIN_ONLY" ] ;
+if [ "$METHOD" == "BIN_ONLY" ] ;
+# 08/25/19 Removed ALL option, due to the lengthy time this takes to do, WG plots must be engaged by BIN_ONLY         
 then
     echo "Genome binning engaged" ;
 
@@ -132,14 +133,14 @@ then
     mv ${INPUT%.fq.gz}*.WG_plot $WD/"${INPUT%.fq.gz}_analysis"/WG_PLOTS
 
 else 
-    echo "Genome binning skipped, to engage use method ALL or BIN_ONLY" ;
+    echo "Genome binning skipped, to engage use method BIN_ONLY" ;
 fi
 
-if [ "$METHOD" == "ALL" ] || [ "$METHOD" == "TRACKS_ONLY" ] ;
+if [ "$METHOD" == "ALL" ] || [ "$METHOD" == "TRACKS_ONLY" ] ; 
 then
     echo "Building Tracks" ;
-    # Non stranded bGph separation
 
+    # Non stranded bGph separation
     awk '$4=="CHH"{print $1"\t"$2-1"\t"$2"\t"$5}' ${INPUT%.fq.gz}.outy | awk '$2!=-1{print $0}' | sort -k1,1 -k2,2n > ${INPUT%.fq.gz}.CHH.NS.bGph
     awk '$4=="CHG"{print $1"\t"$2-1"\t"$2"\t"$5}' ${INPUT%.fq.gz}.outy | awk '$2!=-1{print $0}' | sort -k1,1 -k2,2n > ${INPUT%.fq.gz}.CHG.NS.bGph
     awk '$4=="CG"{print $1"\t"$2-1"\t"$2"\t"$5}' ${INPUT%.fq.gz}.outy | awk '$2!=-1{print $0}' | sort -k1,1 -k2,2n > ${INPUT%.fq.gz}.CG.NS.bGph
@@ -148,8 +149,7 @@ then
     $BGPH2BW ${INPUT%.fq.gz}.CHG.NS.bGph $BS_PROGS/bedGraphToBigWig/tairchrs ${INPUT%.fq.gz}.CHG.NS.bw ;
     $BGPH2BW ${INPUT%.fq.gz}.CG.NS.bGph $BS_PROGS/bedGraphToBigWig/tairchrs ${INPUT%.fq.gz}.CG.NS.bw ;
 
-    #stranded bGph
-
+    # Stranded bGph
     awk '$4=="CHH"{print $1"\t"$2-1"\t"$2"\t"$3$5}' ${INPUT%.fq.gz}.outy | awk '$2!=-1{print $0}' | sort -k1,1 -k2,2n > ${INPUT%.fq.gz}.CHH.bGph ;
     awk '$4=="CHG"{print $1"\t"$2-1"\t"$2"\t"$3$5}' ${INPUT%.fq.gz}.outy | awk '$2!=-1{print $0}' | sort -k1,1 -k2,2n > ${INPUT%.fq.gz}.CHG.bGph ;
     awk '$4=="CG"{print $1"\t"$2-1"\t"$2"\t"$3$5}' ${INPUT%.fq.gz}.outy | awk '$2!=-1{print $0}' | sort -k1,1 -k2,2n > ${INPUT%.fq.gz}.CG.bGph ;
@@ -237,7 +237,7 @@ Col_pUV_BS_seq.out.DMR
         awk '$7>=0.10 && $2!="begin" && $5<$6{print "chr"$1"\t"$2"\t"$3"\t"$4"\t"$7"\t""+"}' ${INPUT%.fq.gz}.CHH.DMR | grep "hypo" > ${INPUT%.fq.gz}.CHH.hypo.DMR ;
         awk '$7>=0.10 && $2!="begin" && $5>$6{print "chr"$1"\t"$2"\t"$3"\t"$4"\t"$7"\t""+"}' ${INPUT%.fq.gz}.CHH.DMR | grep "hyper"  > ${INPUT%.fq.gz}.CHH.hyper.DMR ;
     else
-        echo "NOT calling CHH methylation differences with HCDMR, CONTEXT == $CONTEXT" ;
+        echo "NOT calling CHH methylation differences with HCDMR, CONTEXT is $CONTEXT" ;
     fi 
      ### Call CHG DMRS :
     if [ "$CONTEXT" == "ALL_CONTEXTS" ] || [ "$CONTEXT" == "CHG" ] ;
@@ -250,7 +250,7 @@ Col_pUV_BS_seq.out.DMR
         awk '$7>=0.2 && $2!="begin" && $5<$6{print "chr"$1"\t"$2"\t"$3"\t"$4"\t"$7"\t""+"}' ${INPUT%.fq.gz}.CHG.DMR | grep "hypo" > ${INPUT%.fq.gz}.CHG.hypo.DMR  ;
         awk '$7>=0.2 && $2!="begin" && $5>$6{print "chr"$1"\t"$2"\t"$3"\t"$4"\t"$7"\t""+"}' ${INPUT%.fq.gz}.CHG.DMR | grep "hyper" > ${INPUT%.fq.gz}.CHG.hyper.DMR  ;
     else
-        echo "NOT calling CHG methylation differences with HCDMR, CONTEXT == $CONTEXT" ;
+        echo "NOT calling CHG methylation differences with HCDMR, CONTEXT is $CONTEXT" ;
     fi
 
     ### Call CG DMRS :
@@ -265,7 +265,7 @@ Col_pUV_BS_seq.out.DMR
         awk '$7>=0.4 && $2!="begin" && $5>$6{print "chr"$1"\t"$2"\t"$3"\t"$4"\t"$7"\t""+"}' ${INPUT%.fq.gz}.CG.DMR | grep "hyper" > ${INPUT%.fq.gz}.CG.hyper.DMR ;
     
     else
-        echo "NOT calling CHG methylation differences with HCDMR, CONTEXT == $CONTEXT" ;
+        echo "NOT calling CHG methylation differences with HCDMR, CONTEXT is $CONTEXT" ;
     fi 
 
     ### Summarize DMRs
@@ -287,7 +287,7 @@ Col_pUV_BS_seq.out.DMR
         rm ${i%.DMR}.bGph ;
     done
 else
-    echo "NOT calling DMRS via hcDMR, METHOD == $METHOD " ;
+    echo "hcDMR calling not engaged, you chose the method $METHOD " ;
 fi
 
 
