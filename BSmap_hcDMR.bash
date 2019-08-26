@@ -32,13 +32,15 @@ export PATH HOME WD BS_PROGS PLOTTER BSMAP BGPH2BW CONTEXT
 
 ### Build initial directory structure
 
+echo "User decided on the data analysis method: $METHOD"
+
 if [ -e "$WD/${INPUT%.fq.gz}_analysis" ] ; then echo "Initial directory previously made, doing nothing" ; else echo "Making primary analysis directory $WD/${INPUT%.fq.gz}_analysis" ; mkdir ./"${INPUT%.fq.gz}_analysis" ; fi 
 
 
 ### Fastqc all each file
 #fastqc $PRIMARY_INPUT --outdir $WD/fastqcs
 
-if [ "$TRIM" == "TRUE" ] && [ $METHOD != "BIN_ONLY" ]; then
+if [ "$TRIM" == "TRUE" ] && [ $METHOD == "ALL" ] || [ "$TRIM" == "TRUE" ] && [ $METHOD == "MAP_ONLY" ]; then
     TRIMMED_FASTQ="$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq/${INPUT%.fq.gz}.trimmed.fq.gz"
     
     if [ -e "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq" ]; 
@@ -55,9 +57,6 @@ if [ "$TRIM" == "TRUE" ] && [ $METHOD != "BIN_ONLY" ]; then
 else
     echo "Trimming via FASTP not requested, proceeding to alignment"
 fi
-
-
-echo "User decided on the data analysis method: $METHOD"
 
 if [ "$METHOD" == "ALL" ] || [ "$METHOD" == "MAP_ONLY" ]; 
 then
@@ -118,35 +117,43 @@ then
     echo "Calculating Genome Wide Methylation Levels in All Contexts (CG, CHG, CHH)"
 
     _CG=$(awk '$4=="CG"{MC+=$7;TO+=$8;}END{print MC/TO}' ${INPUT%.fq.gz}.outy) ;
-    echo "CG mC level (% of total CG)" >> ${INPUT%.fq.gz}_Genome_Met.txt ;
-    echo $_CG*100 | bc -l >> ${INPUT%.fq.gz}_Genome_Met.txt ;
+    echo "CG mC level (% of total CG):" >> ${INPUT%.fq.gz}_Genome_Met.txt ;
+    echo $_CG*100.0 | bc -l >> ${INPUT%.fq.gz}_Genome_Met.txt ;
 
     _CHG=$(awk '$4=="CHG"{MC+=$7;TO+=$8;}END{print MC/TO}' ${INPUT%.fq.gz}.outy) ;
-    echo "CHG mC level (% of total CHG)" >> ${INPUT%.fq.gz}_Genome_Met.txt ;
-    echo $_CHG*100 | bc -l >> ${INPUT%.fq.gz}_Genome_Met.txt ; 
+    echo "CHG mC level (% of total CHG):" >> ${INPUT%.fq.gz}_Genome_Met.txt ;
+    echo $_CHG*100.0 | bc -l >> ${INPUT%.fq.gz}_Genome_Met.txt ; 
 
     _CHH=$(awk '$4=="CHH"{MC+=$7;TO+=$8;}END{print MC/TO}' ${INPUT%.fq.gz}.outy) ;
-    echo "CHH mC level (% of total CHH)" >> ${INPUT%.fq.gz}_Genome_Met.txt ;
-    echo $_CHH*100 | bc -l >> ${INPUT%.fq.gz}_Genome_Met.txt ;
+    echo "CHH mC level (% of total CHH):" >> ${INPUT%.fq.gz}_Genome_Met.txt ;
+    echo $_CHH*100.0 | bc -l >> ${INPUT%.fq.gz}_Genome_Met.txt ;
 
     # Calculate Chloroplast methylation levels to find methylation conversion efficiency
     echo "Calculating Chloroplast Methylation Levels in All Contexts (CG, CHG, CHH, ALL) to estimate bisulfite conversion efficiecy"
 
     C_CG=$(awk '$1=="chrC" && $4=="CG"{MC+=$7;TO+=$8;}END{print MC/TO}' ${INPUT%.fq.gz}.outy) ;
-    echo "CG mC level (% of total CG)" >> ${INPUT%.fq.gz}_chrC_Met.txt ;
-    echo $C_CG*100 | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo "CG mC level (% of total CG):" >> ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo $C_CG*100.0 | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo "Unmethylated CG Conversion Efficiency equals:" >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo "100.0-($C_CG*100)" | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
 
     C_CHG=$(awk '$1=="chrC" && $4=="CHG"{MC+=$7;TO+=$8;}END{print MC/TO}' ${INPUT%.fq.gz}.outy) ;
-    echo "CHG mC level (% of total CHG)" >> ${INPUT%.fq.gz}_chrC_Met.txt ;
-    echo $C_CHG*100 | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo "CHG mC level (% of total CHG):" >> ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo $C_CHG*100.0 | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo "Unmethylated CHG Conversion Efficiency equals:" >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo "100.0-($C_CHG*100)" | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
 
     C_CHH=$(awk '$1=="chrC" && $4=="CHH"{MC+=$7;TO+=$8;}END{print MC/TO}' ${INPUT%.fq.gz}.outy) ;
-    echo "CHH mC level (% of total CHH)" >> ${INPUT%.fq.gz}_chrC_Met.txt ;
-    echo $C_CHH*100 | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo "CHH mC level (% of total CHH):" >> ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo $C_CHH*100.0 | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo "Unmethylated CHH Conversion Efficiency equals:" >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo "100.0-($C_CHH*100)" | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
 
     C_ALL=$(awk '$1=="chrC"{MC+=$7;TO+=$8;}END{print MC/TO}' ${INPUT%.fq.gz}.outy) ;
-    echo "All mC level (% of total C in all contexts)" >> ${INPUT%.fq.gz}_chrC_Met.txt ;
-    echo $C_ALL*100 | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo "All mC level (% of total C in all contexts):" >> ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo $C_ALL*100.0 | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo "Unmethylated Total C Conversion Efficiency equals:" >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo "100.0-($C_ALL*100)" | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
 
 else
     echo "Genome Wide methylation levels not calculated, to engage use method ALL or CALC_MET"
