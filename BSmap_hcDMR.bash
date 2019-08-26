@@ -86,8 +86,9 @@ then
  
 else 
     echo "Mapping not engaged proceeding to Genome Binning, to engage mapping use method ALL or MAP_ONLY" ;
-
 fi
+
+
 
 if [ "$METHOD" == "ALL" ] || [ "$METHOD" == "CALC_GENOME_MET" ]; 
 then 
@@ -111,30 +112,6 @@ else
 fi
 
 
-if [ "$METHOD" == "BIN_ONLY" ] ;
-# 08/25/19 Removed ALL option, due to the lengthy time this takes to do, WG plots must be engaged by BIN_ONLY         
-then
-    echo "Genome binning engaged" ;
-
-    # Separating contexts and making WG methylation plots
-    for i in "CG" "CHG" "CHH" ;
-    do
-        source activate base  # base on my system is python 2.7.15, you'll need to fill in your own
-
-        grep $i ${INPUT%.fq.gz}.outy > ${INPUT%.fq.gz}.${i}.tmp ;
-        
-        python $PLOTTER/WG_methylation_plotter.py $PLOTTER/genome_1Mb_binned.txt ${INPUT%.fq.gz}.${i}.tmp > ${INPUT%.fq.gz}.${i}.WG_plot ;
-        
-        if [ -e ${INPUT%.fq.gz}.${i}.WG_plot ]; then rm ${INPUT%.fq.gz}.${i}.tmp ; fi        
-
-    done
-    # Cleanup
-    mkdir -p $WD/"${INPUT%.fq.gz}_analysis"/WG_PLOTS ;
-    mv ${INPUT%.fq.gz}*.WG_plot $WD/"${INPUT%.fq.gz}_analysis"/WG_PLOTS
-
-else 
-    echo "Genome binning skipped, to engage use method BIN_ONLY" ;
-fi
 
 if [ "$METHOD" == "ALL" ] || [ "$METHOD" == "TRACKS_ONLY" ] ; 
 then
@@ -299,6 +276,35 @@ then
 else
     echo "Final cleanup not engaged, only used with method ALL"
 fi
+
+
+if [ "$METHOD" == "BIN_ONLY" ] ;
+# 08/25/19 Removed ALL option, due to the lengthy time this takes to do, WG plots must be engaged by BIN_ONLY
+# i.e. nohup sh BSmap_hcDMR.bash /path/to/original.outy /path/to/ref.genome.fa BIN_ONLY &          
+then
+    echo "Genome binning engaged" ;
+
+    # Separating contexts and making WG methylation plots
+    for i in "CG" "CHG" "CHH" ;
+    do
+        source activate base  # base on my system is python 2.7.15, you'll need to fill in your own
+
+        grep $i ${PRIMARY_INPUT} > ${PRIMARY_INPUT%.outy}.${i}.tmp ;
+        
+        python $PLOTTER/WG_methylation_plotter.py $PLOTTER/genome_1Mb_binned.txt ${PRIMARY_INPUT%.outy}.${i}.tmp > ${PRIMARY_INPUT%.outy}.${i}.WG_plot ;
+        
+        if [ -e ${PRIMARY_INPUT%.outy}.${i}.WG_plot ]; then rm ${PRIMARY_INPUT%.outy}.${i}.tmp ; fi        
+
+    done
+    # Cleanup
+    mkdir -p ${PRIMARY_INPUT%.outy}_analysis/WG_PLOTS ;
+    mv ${PRIMARY_INPUT%.outy}*.WG_plot ${PRIMARY_INPUT%.outy}_analysis/WG_PLOTS
+
+else 
+    echo "Genome binning skipped, to engage use method BIN_ONLY" ;
+fi
+
+
 
 ### update in future to include: 
 # methdiff DMR calling
