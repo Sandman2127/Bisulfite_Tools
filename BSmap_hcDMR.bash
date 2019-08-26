@@ -12,12 +12,13 @@ CPUCORES=5                          # How many cores do you want to utilize per 
 CG_MET_DIFF=0.4                     # 40% methylation difference
 CHG_MET_DIFF=0.2                    # 20% methylation difference
 CHH_MET_DIFF=0.1                    # 10% methylation difference
+TRIM="TRUE"                         # engage Trimming via fastp or not
 
 #Arguments:
 PRIMARY_INPUT=$1
 INPUT="$(basename $PRIMARY_INPUT)"  # This allows me to call from a directory structure keeping the data name separate
 REF="$2"                            # Reference genome.fa
-METHOD="$3"                         # ALL MAP_ONLY CALC_GENOME_MET BIN_ONLY TRACKS_ONLY HCDMR_ONLY 
+METHOD="$3"                         # ALL MAP_ONLY CALC_MET TRACKS_ONLY HCDMR_ONLY BIN_ONLY
 CONTEXT="$4"                        # ALL_CONTEXTS CG CHG CHH the default is all if no $4, pass CG as $4 with HCDMR only to only call CG DMRs
 if [ "$CONTEXT" != "" ]; then
     CONTEXT=$4
@@ -31,19 +32,42 @@ export PATH HOME WD BS_PROGS PLOTTER BSMAP BGPH2BW CONTEXT
 
 ### Build initial directory structure
 
-if [ -e ./"${INPUT%.fq.gz}_analysis" ] ; then echo "Initial directory previously made, doing nothing" ; else echo "Making primary analysis directory $WD/${INPUT%.fq.gz}_analysis" ; mkdir ./"${INPUT%.fq.gz}_analysis" ; fi 
+if [ -e "$WD/${INPUT%.fq.gz}_analysis" ] ; then echo "Initial directory previously made, doing nothing" ; else echo "Making primary analysis directory $WD/${INPUT%.fq.gz}_analysis" ; mkdir ./"${INPUT%.fq.gz}_analysis" ; fi 
 
 
 ### Fastqc all each file
 #fastqc $PRIMARY_INPUT --outdir $WD/fastqcs
+
+if [ "$TRIM" == "TRUE" ] && [ $METHOD != "BIN_ONLY" ]; then
+    TRIMMED_FASTQ="$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq/${INPUT%.fq.gz}.trimmed.fq.gz"
+    
+    if [ -e "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq" ]; 
+    then 
+        echo "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq already exists, proceeding to trim";
+        $HOME/progs/fastp/fastp --thread $CPUCORES --in1 $PRIMARY_INPUT --out1 $TRIMMED_FASTQ
+        mv ./fastp.json ./fastp.html "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq"  
+    else
+        echo "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq does not exist, making directory and proceeding to trim";
+        mkdir -p "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq" ;
+        $HOME/progs/fastp/fastp --thread $CPUCORES --in1 $PRIMARY_INPUT --out1 $TRIMMED_FASTQ
+        mv ./fastp.json ./fastp.html "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq"   
+    fi
+else
+    echo "Trimming via FASTP not requested, proceeding to alignment"
+fi
+
 
 echo "User decided on the data analysis method: $METHOD"
 
 if [ "$METHOD" == "ALL" ] || [ "$METHOD" == "MAP_ONLY" ]; 
 then
     echo "Bisulfite Mapping engaged with $CPUCORES"
-
-    $BSMAP -f 5 -q 33 -n 0 -a $PRIMARY_INPUT -d $REF -o ${INPUT%.fq.gz}.bam -p $CPUCORES -v 0.08 ;
+    if [ "$TRIM" == "TRUE" ];
+    then
+        $BSMAP -f 5 -q 33 -n 0 -a $TRIMMED_FASTQ -d $REF -o ${INPUT%.fq.gz}.bam -p $CPUCORES -v 0.08 ;
+    else
+        $BSMAP -f 5 -q 33 -n 0 -a $PRIMARY_INPUT -d $REF -o ${INPUT%.fq.gz}.bam -p $CPUCORES -v 0.08 ;
+    fi
 
         # v = 0.12 or 12 % of the 100 bp read can be mismatched, 0.08 = default 8% incorrect
         # -f filter 5 n or less per read
@@ -81,16 +105,14 @@ then
         #         -r, --remove-duplicate
         #                                 remove duplicated reads.
 
-    mkdir -p $WD/"${INPUT%.fq.gz}_analysis"/Bisulfite_alignment ;
-    mv ${INPUT%.fq.gz}.bam $WD/"${INPUT%.fq.gz}_analysis"/Bisulfite_alignment 
+    mkdir -p "$WD/${INPUT%.fq.gz}_analysis/Bisulfite_alignment" ;
+    mv ${INPUT%.fq.gz}.bam "$WD/${INPUT%.fq.gz}_analysis/Bisulfite_alignment" 
  
 else 
     echo "Mapping not engaged proceeding to Genome Binning, to engage mapping use method ALL or MAP_ONLY" ;
 fi
 
-
-
-if [ "$METHOD" == "ALL" ] || [ "$METHOD" == "CALC_GENOME_MET" ]; 
+if [ "$METHOD" == "ALL" ] || [ "$METHOD" == "CALC_MET" ]; 
 then 
     # Calc total methylation levels
     echo "Calculating Genome Wide Methylation Levels in All Contexts (CG, CHG, CHH)"
@@ -107,8 +129,27 @@ then
     echo "CHH mC level (% of total CHH)" >> ${INPUT%.fq.gz}_Genome_Met.txt ;
     echo $_CHH*100 | bc -l >> ${INPUT%.fq.gz}_Genome_Met.txt ;
 
+    # Calculate Chloroplast methylation levels to find methylation conversion efficiency
+    echo "Calculating Chloroplast Methylation Levels in All Contexts (CG, CHG, CHH, ALL) to estimate bisulfite conversion efficiecy"
+
+    C_CG=$(awk '$1=="chrC" && $4=="CG"{MC+=$7;TO+=$8;}END{print MC/TO}' ${INPUT%.fq.gz}.outy) ;
+    echo "CG mC level (% of total CG)" >> ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo $C_CG*100 | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+
+    C_CHG=$(awk '$1=="chrC" && $4=="CHG"{MC+=$7;TO+=$8;}END{print MC/TO}' ${INPUT%.fq.gz}.outy) ;
+    echo "CHG mC level (% of total CHG)" >> ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo $C_CHG*100 | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+
+    C_CHH=$(awk '$1=="chrC" && $4=="CHH"{MC+=$7;TO+=$8;}END{print MC/TO}' ${INPUT%.fq.gz}.outy) ;
+    echo "CHH mC level (% of total CHH)" >> ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo $C_CHH*100 | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+
+    C_ALL=$(awk '$1=="chrC"{MC+=$7;TO+=$8;}END{print MC/TO}' ${INPUT%.fq.gz}.outy) ;
+    echo "All mC level (% of total C in all contexts)" >> ${INPUT%.fq.gz}_chrC_Met.txt ;
+    echo $C_ALL*100 | bc -l >>  ${INPUT%.fq.gz}_chrC_Met.txt ;
+
 else
-    echo "Genome Wide methylation levels not calculated, to engage use method ALL or CALC_GENOME_MET"
+    echo "Genome Wide methylation levels not calculated, to engage use method ALL or CALC_MET"
 fi
 
 
@@ -270,9 +311,10 @@ fi
 
 if [ "$METHOD" == "ALL" ];
 then
-    echo "Final cleanup: moving DMR files, transformed DMR bigWigs, outy files and gzipped intermediates to $WD/"${INPUT%.fq.gz}_analysis"/hcDMRs"
+    echo "Final cleanup: moving DMR files, transformed DMR bigWigs, outy files and gzipped intermediates to $WD/${INPUT%.fq.gz}_analysis/hcDMRs"
     mkdir -p $WD/"${INPUT%.fq.gz}_analysis"/hcDMRs ;
-    mv ${INPUT%.fq.gz}*.bw ${INPUT%.fq.gz}*.DMR ${INPUT%.fq.gz}.outy ${INPUT%.fq.gz}*.gz $WD/"${INPUT%.fq.gz}_analysis"/hcDMRs 
+    mv ${INPUT%.fq.gz}*hyp*.bw ${INPUT%.fq.gz}*.DMR ${INPUT%.fq.gz}*.gz "$WD/${INPUT%.fq.gz}_analysis/hcDMRs"
+    mv ${INPUT%.fq.gz}*Met.txt ${INPUT%.fq.gz}*outy "$WD/${INPUT%.fq.gz}_analysis/Bisulfite_alignment"
 else
     echo "Final cleanup not engaged, only used with method ALL"
 fi
