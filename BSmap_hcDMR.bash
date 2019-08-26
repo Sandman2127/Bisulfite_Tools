@@ -8,6 +8,7 @@ BSMAP="$BS_PROGS/bsmap-2.90/bsmap"
 BGPH2BW="$BS_PROGS/bedGraphToBigWig/bedGraphToBigWig"
 HCDMR_MAIN="$BS_PROGS/hcDMR_caller/Main"
 HCDMR_DATA="$BS_PROGS/hcDMR_caller/Ref_data/"
+FASTP="$HOME/progs/fastp/fastp"
 CPUCORES=5                          # How many cores do you want to utilize per run?
 CG_MET_DIFF=0.4                     # 40% methylation difference
 CHG_MET_DIFF=0.2                    # 20% methylation difference
@@ -46,12 +47,12 @@ if ([ "$TRIM" == "TRUE" ] && [ $METHOD == "ALL" ]) || ([ "$TRIM" == "TRUE" ] && 
     if [ -e "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq" ]; 
     then 
         echo "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq already exists, proceeding to trim";
-        $HOME/progs/fastp/fastp --thread $CPUCORES --in1 $PRIMARY_INPUT --out1 $TRIMMED_FASTQ
+        $FASTP --thread $CPUCORES --in1 $PRIMARY_INPUT --out1 $TRIMMED_FASTQ
         mv ./fastp.json ./fastp.html "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq"  
     else
         echo "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq does not exist, making directory and proceeding to trim";
         mkdir -p "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq" ;
-        $HOME/progs/fastp/fastp --thread $CPUCORES --in1 $PRIMARY_INPUT --out1 $TRIMMED_FASTQ
+        $FASTP --thread $CPUCORES --in1 $PRIMARY_INPUT --out1 $TRIMMED_FASTQ
         mv ./fastp.json ./fastp.html "$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq"   
     fi
 else
