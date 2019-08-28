@@ -346,8 +346,8 @@ then
 
     done
     # Cleanup
-    mkdir -p ${PRIMARY_INPUT%.outy}_analysis/WG_PLOTS ;
-    mv ${PRIMARY_INPUT%.outy}*.WG_plot ${PRIMARY_INPUT%.outy}_analysis/WG_PLOTS
+    #mkdir -p ${PRIMARY_INPUT%.outy}_analysis/WG_PLOTS ;
+    #mv ${PRIMARY_INPUT%.outy}*.WG_plot ${PRIMARY_INPUT%.outy}_analysis/WG_PLOTS
 
 else 
     echo "Genome binning skipped, to engage use method BIN_ONLY" ;
