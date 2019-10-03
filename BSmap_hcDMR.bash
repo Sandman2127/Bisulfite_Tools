@@ -39,7 +39,8 @@ if [ -e "$WD/${INPUT%.fq.gz}_analysis" ] ; then echo "Initial directory previous
 
 
 ### Fastqc all each file
-#fastqc $PRIMARY_INPUT --outdir $WD/fastqcs
+if [ ! -d "$WD/fastqcs" ]; then mkdir -p $WD/fastqcs ; else echo "$WD/fastqcs already exists leaving it alone" ; fi
+fastqc "${PRIMARY_INPUT}" --outdir "$WD/fastqcs" ;
 
 if ([ "$TRIM" == "TRUE" ] && [ $METHOD == "ALL" ]) || ([ "$TRIM" == "TRUE" ] && [ $METHOD == "MAP_ONLY" ]); then
     TRIMMED_FASTQ="$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq/${INPUT%.fq.gz}.trimmed.fq.gz"
@@ -318,7 +319,7 @@ fi
 
 if [ "$METHOD" == "ALL" ];
 then
-    echo "Final cleanup: moving DMR files, transformed DMR bigWigs, outy files and gzipped intermediates to $WD/${INPUT%.fq.gz}_analysis/hcDMRs"
+    echo "Final cleanup: moving DMR files, transformed DMR bigWigs, outy files and gzipped intermediates to $WD/${INPUT%.fq.gz}_analysis/"
     mkdir -p $WD/"${INPUT%.fq.gz}_analysis"/hcDMRs ;
     mv ${INPUT%.fq.gz}*hyp*.bw ${INPUT%.fq.gz}*.DMR ${INPUT%.fq.gz}*.gz "$WD/${INPUT%.fq.gz}_analysis/hcDMRs"
     mv ${INPUT%.fq.gz}*Met.txt ${INPUT%.fq.gz}*outy "$WD/${INPUT%.fq.gz}_analysis/Bisulfite_alignment"
