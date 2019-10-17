@@ -9,24 +9,37 @@ BGPH2BW="$BS_PROGS/bedGraphToBigWig/bedGraphToBigWig"
 HCDMR_MAIN="$BS_PROGS/hcDMR_caller/Main"
 HCDMR_DATA="$BS_PROGS/hcDMR_caller/Ref_data/"
 FASTP="$HOME/progs/fastp/fastp"
-CPUCORES=12                          # How many cores do you want to utilize per run?
+CPUCORES=6                          # How many cores do you want to utilize per run?
 CG_MET_DIFF=0.4                     # 40% methylation difference
 CHG_MET_DIFF=0.2                    # 20% methylation difference
 CHH_MET_DIFF=0.1                    # 10% methylation difference
 TRIM="TRUE"                         # engage Trimming via fastp or not
 
-#Arguments:
-PRIMARY_INPUT=$1
-INPUT="$(basename $PRIMARY_INPUT)"  # This allows me to call from a directory structure keeping the data name separate
-REF="$2"                            # Reference genome.fa
-METHOD="$3"                         # ALL MAP_ONLY CALC_MET TRACKS_ONLY HCDMR_ONLY BIN_ONLY
-CONTEXT="$4"                        # ALL_CONTEXTS CG CHG CHH the default is all if no $4, pass CG as $4 with HCDMR only to only call CG DMRs
-if [ "$CONTEXT" != "" ]; then
-    CONTEXT=$4
-    echo "If method is ALL or HCDMR_ONLY calling DMRs on only $CONTEXT"
+
+if [ "$1" == "METHDIFF" ];
+then
+    #MethDiff Arguments
+    METHOD="$1"
+    CONTROL_FILE="$2"
+    MUTANT_FILE="$3"
+    REF="$4"  
+
 else
-    CONTEXT="ALL_CONTEXTS"
-    echo "If method is ALL or HCDMR_ONLY calling DMRs on $CONTEXT"
+
+    #HCDMR Arguments:
+    PRIMARY_INPUT=$1
+    INPUT="$(basename $PRIMARY_INPUT)"  # This allows me to call from a directory structure keeping the data name separate
+    REF="$2"                            # Reference genome.fa
+    METHOD="$3"                         # ALL MAP_ONLY CALC_MET TRACKS_ONLY HCDMR_ONLY BIN_ONLY METHDIFF
+    CONTEXT="$4"                        # ALL_CONTEXTS CG CHG CHH the default is all if no $4, pass CG as $4 with HCDMR only to only call CG DMRs
+    if [ "$CONTEXT" != "" ]; then
+        CONTEXT=$4
+        echo "If method is ALL or HCDMR_ONLY calling DMRs on only $CONTEXT"
+    else
+        CONTEXT="ALL_CONTEXTS"
+        echo "If method is ALL or HCDMR_ONLY calling DMRs on $CONTEXT"
+    fi
+
 fi
 
 export PATH HOME WD BS_PROGS PLOTTER BSMAP BGPH2BW CONTEXT
@@ -35,12 +48,12 @@ export PATH HOME WD BS_PROGS PLOTTER BSMAP BGPH2BW CONTEXT
 
 echo "User decided on the data analysis method: $METHOD"
 
-if [ -e "$WD/${INPUT%.fq.gz}_analysis" ] ; then echo "Initial directory previously made, doing nothing" ; else echo "Making primary analysis directory $WD/${INPUT%.fq.gz}_analysis" ; mkdir ./"${INPUT%.fq.gz}_analysis" ; fi 
+if [ -e "$WD/${INPUT%.fq.gz}_analysis" ] || [ "$METHOD" == "METHDIFF" ]; then echo "Initial directory previously made, doing nothing" ; else echo "Making primary analysis directory $WD/${INPUT%.fq.gz}_analysis" ; mkdir ./"${INPUT%.fq.gz}_analysis" ; fi 
 
 
 ### Fastqc all each file
-if [ ! -d "$WD/fastqcs" ]; then mkdir -p $WD/fastqcs ; else echo "$WD/fastqcs already exists leaving it alone" ; fi
-fastqc "${PRIMARY_INPUT}" --outdir "$WD/fastqcs" ;
+if [ ! -d "$WD/fastqcs" ] || [ "$METHOD" != "METHDIFF" ]; then mkdir -p $WD/fastqcs ; else echo "$WD/fastqcs already exists leaving it alone" ; fi
+fastqc --outdir "$WD/fastqcs" --threads "$CPUCORES" "${PRIMARY_INPUT}"  ;
 
 if ([ "$TRIM" == "TRUE" ] && [ $METHOD == "ALL" ]) || ([ "$TRIM" == "TRUE" ] && [ $METHOD == "MAP_ONLY" ]); then
     TRIMMED_FASTQ="$WD/${INPUT%.fq.gz}_analysis/trimmed_fastq/${INPUT%.fq.gz}.trimmed.fq.gz"
@@ -351,17 +364,21 @@ fi
 
 
 
+if [ "$METHOD" == "METHDIFF" ];
+then
+rm -r ./fastqcs
+CONTROLNAME=$(basename $CONTROL_FILE)
+MUTANTNAME=$(basename $MUTANT_FILE)
 
-
-### update in future to include: 
 # methdiff DMR calling
 
-#python /mnt/ws/home/dsanders/Data/bsmap-2.90/methdiff.py -o ${1%.fq.gz}.CG -l col,${1%.fq.gz} -x CG -d $2 -r 0.4 -b 100 -p 0.01 ${CONTROL_LIB%.fq.gz}.outy ${1%.fq.gz}.outy  ;
+python $BS_PROGS/bsmap-2.90/methdiff.py -o ${MUTANTNAME%.outy}.CG -l ${CONTROLNAME%.outy},${MUTANTNAME%.outy} -x CG -d $REF -r 0.4 -b 100 -p 0.01 $CONTROL_FILE $MUTANT_FILE ;
 
-#python /mnt/ws/home/dsanders/Data/bsmap-2.90/methdiff.py -o ${1%.fq.gz}.CHG  -l col,${1%.fq.gz} -x CHG -d $2 -r 0.2 -b 100 -p 0.01 ${CONTROL_LIB%.fq.gz}.outy ${1%.fq.gz}.outy ;
+python $BS_PROGS/bsmap-2.90/methdiff.py -o ${MUTANTNAME%.outy}.CHG  -l ${CONTROLNAME%.outy},${MUTANTNAME%.outy} -x CHG -d $REF -r 0.2 -b 100 -p 0.01 $CONTROL_FILE $MUTANT_FILE ;
 
-#python /mnt/ws/home/dsanders/Data/bsmap-2.90/methdiff.py -o ${1%.fq.gz}.CHH  -l col,${1%.fq.gz} -x CHH -d $2 -r 0.1 -b 100 -p 0.01 ${CONTROL_LIB%.fq.gz}.outy ${1%.fq.gz}.outy ;
+python $BS_PROGS/bsmap-2.90/methdiff.py -o ${MUTANTNAME%.outy}.CHH  -l ${CONTROLNAME%.outy},${MUTANTNAME%.outy} -x CHH -d $REF -r 0.1 -b 100 -p 0.01 $CONTROL_FILE $MUTANT_FILE ;
 
+fi
 
 
 ### update in future to include: 
