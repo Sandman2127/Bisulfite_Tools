@@ -88,8 +88,26 @@ def process_chrom(bins,chr_file):
                     pass
         print index,"\t",100*(binratio/bintotal),"\t",start,"\t",end
 
+def return_met_conversion_rate():
+    with open(_METFILE) as outyfile:
+        inputdf = pd.read_table(outyfile,sep='\t')
+        
+                #shape of full, few additional columns not used
+                #     chr  pos strand context  ratio  eff_CT_count  C_count  CT_count  \
+                # 0  chr1   15      +     CHH    0.0           1.0        0         1   
+                # 1  chr1   16      +     CHH    0.0           1.0        0         1   
+                # 2  chr1   17      +     CHH    1.0           1.0        1         1   
+                # 3  chr1   22      +     CHH    0.0           1.0        0         1   
+                # 4  chr1   23      +     CHH    0.0           1.0        0         1
 
-
+        chrC = inputdf[inputdf['chr'] == 'chrC']
+        listA=chrC.sum(axis=0,skipna=True).tolist()
+        C_count=float(listA[6])
+        CT_count=float(listA[7])
+        Unconv=100*(C_count/CT_count)
+        Conv_efficiency=100-Unconv
+        print "Conversion efficiency equals: ",Conv_efficiency," normalized results will subtract ",Unconv,"from the raw total"
+        return float(Unconv)
 
 
 
@@ -114,14 +132,15 @@ def split_metfile_df(context):
         return next_list_o_dfs
 
 
-def process_chrom_df(bins,met_df,writefile):
+def process_chrom_df(bins,met_df,corr_factor,writefile):
+    #TODO process methylation into bins 
     index = 0
     for row in bins.itertuples():
         list1 = []
         index += 1
         start = int(row[2])
         end = int(row[3])
-        binratio = 0
+        binratio = float(0)
         bintotal = 1 
         for metCs in met_df.itertuples():
             cyt_pos = int(metCs[2])
@@ -133,8 +152,14 @@ def process_chrom_df(bins,met_df,writefile):
                 break
             else:
                 pass
-        output=str(index) + "\t" + str(100*(binratio/bintotal)) + "\t" + str(start) + "\t" + str(end) + "\n"
-        writefile.write(output)
+        # protects for situations where this value may go negative due to incorrect corr_factor or other methylation differences
+        efficiency_corrected_methylation=(100*(binratio/bintotal))-corr_factor
+        if efficiency_corrected_methylation < 0: 
+            output=str(index) + "\t" + str(100*(binratio/bintotal)) + "\t" + str(0) + "\t" + str(start) + "\t" + str(end) + "\n"
+            writefile.write(output)
+        else:
+            output=str(index) + "\t" + str(100*(binratio/bintotal)) + "\t" + str(efficiency_corrected_methylation) + "\t" + str(start) + "\t" + str(end) + "\n"
+            writefile.write(output)
 
 
 def multi_process_wrapper_1(args):
@@ -145,6 +170,10 @@ def multi_process_wrapper_1(args):
         pass
 
 if __name__ == "__main__":
+
+    #TODO calc conversion efficiency to use for normalization:
+    corr_factor=return_met_conversion_rate()
+
     #TODO readin bins:
     print "Reading in genome bins..."
     bins = read_bins()
@@ -165,18 +194,22 @@ if __name__ == "__main__":
         fileoutname = cwd + "/" + str(_METFILE.replace(".outy",'')) + "." + str(context) + ".WGplot.txt"
         with open(fileoutname,"w+") as writefile:
 
+            #TODO write header
+            header=str("Chrom_Index") + "\t" + str("Uncorrected_Methylation") + "\t" + str("Conv_Eff_Corrected_Methylation") + "\t" + str("Bin_Start") + "\t" + str("Bin_End") + "\n"
+            writefile.write(header)
+
             #TODO process in this context:
             print "Writing binned whole genome methylation data into",fileoutname 
             print "Processing chr1"
-            process_chrom_df(chr1_bins,met1,writefile)
+            process_chrom_df(chr1_bins,met1,corr_factor,writefile)
             print "Processing chr2"
-            process_chrom_df(chr2_bins,met2,writefile)
+            process_chrom_df(chr2_bins,met2,corr_factor,writefile)
             print "Processing chr3"
-            process_chrom_df(chr3_bins,met3,writefile)
+            process_chrom_df(chr3_bins,met3,corr_factor,writefile)
             print "Processing chr4"
-            process_chrom_df(chr4_bins,met4,writefile)
+            process_chrom_df(chr4_bins,met4,corr_factor,writefile)
             print "Processing chr5"
-            process_chrom_df(chr5_bins,met5,writefile)
+            process_chrom_df(chr5_bins,met5,corr_factor,writefile)
             print "Data processing complete for: ",fileoutname
 
 
